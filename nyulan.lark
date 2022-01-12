@@ -1,0 +1,27 @@
+INSTRUCTION: /[A-Z0-9]+/
+REGISTER: /r\d\d?/
+VARIABLE: /\${.*}/
+COMMENT: /;.*/
+STRING: /".*"/
+DECIMAL.-1:/[0-9]+/
+HEXADECIMAL:/0x[0-fA-F]+/
+BINARY:/0b[01]+/
+
+number:DECIMAL|HEXADECIMAL|BINARY
+literal:STRING|number
+operand: REGISTER|VARIABLE|number
+
+operands: operand ("," operand)?
+step: INSTRUCTION operands?
+IDENTIFILER.-1:/[.a-z0-9_]+/ //大文字は使用不可
+
+literal_list: literal ("," literal)*
+def_var: "DEFVAR" IDENTIFILER literal_list
+
+define_label: IDENTIFILER ":"
+export_label: "GLOBAL" IDENTIFILER
+import_label: "EXTERN" IDENTIFILER
+
+start: ((def_var|define_label|export_label|import_label|step)? COMMENT? "\n")+
+
+%ignore " "

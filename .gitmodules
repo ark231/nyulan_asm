@@ -1,0 +1,3 @@
+[submodule "nyulan_vm"]
+	path = nyulan_vm
+	url = git@github.com:ark231/nyulan_vm.git
