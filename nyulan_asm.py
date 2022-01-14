@@ -3,6 +3,10 @@ import CppHeaderParser
 import argparse
 import lark
 from typing import List,Dict,Union
+import json
+import sys
+from pathlib import Path
+import gzip
 
 class Register(int):
     def __new__(cls,value:str):
@@ -14,7 +18,7 @@ class OneStep:
         self.operands=operands
         self.is_placeholder=is_placeholder
 
-    def __str__(self):
+    def __repr__(self):
         if self.is_placeholder:
             return "placeholder"
         else:
@@ -27,16 +31,43 @@ MACROS_LENGTH={
         "PUSHL64":8
         }
 
-class Label:
+class PointerLike():
     def __init__(self,name:str,address:int):
         self.name=name
         self.address=address
+    def __repr__(self):
+        return f"{self.name}=>{self.address}"
 
-class Flattener(lark.Transformer):
-    instruction_enum:Dict[str,int]
-    global_labels:Dict[str,Label]
-    external_labels:Dict[str,Label]
-    num_steps:int
+class Label(PointerLike):
+    pass
+
+class Variable(PointerLike):
+    pass
+
+class MiddlecodeGenerator(lark.Transformer):
+    instruction_enum:Dict[str,int]=dict()
+
+    data_segment:List[int]=list()
+    variables:List[Variable]=list()
+    labels:List[Label]=list()
+    global_labels:List[str]=list()
+    external_labels:List[str]=list()
+    num_steps:int=0
+    steps:List[OneStep]
+
+    def __repr__(self):
+        return f"""
+MiddlecodeGenerator{{
+    data_segment_size:{len(self.data_segment)}
+    data_segment:{self.data_segment}
+    variables:{self.variables}
+    labels:{self.labels}
+    global_labels:{self.global_labels}
+    external_labels:{self.external_labels}
+    num_steps:{self.num_steps}
+    steps:{self.steps}
+}}
+        """
 
     def __init__(self)->None:
         self.instruction_enum=dict()
@@ -46,25 +77,34 @@ class Flattener(lark.Transformer):
                 for enum in core_enum["values"]:
                     self.instruction_enum[enum["name"]]=enum["value"]
 
+    def from_tree(self,tree:lark.Tree)->None:
+        super().transform(tree)
+
     def number(self,node:List[lark.Token])->int:
         assert len(node) == 1
         return int(node[0].value,0)
 
-    def STRING(self,node:str)->str:
-        return node.replace('"','').replace("'","")
+    def STRING(self,node:str)->List[int]:
+        return list(map(ord,node.replace('"','').replace("'","")))
 
     def COMMENT(self,node:str):
         return lark.visitors.Discard
 
-    def literal(self,node:List[Union[str,int]])->Union[str,int]:
+    def literal(self,node:List[int])->List[int]:
         assert len(node)==1,str(node)
         if isinstance(node[0],lark.Token):
             value=getattr(self,node[0].type)(node[0].value)
             return value
         return node[0]
 
-    def literal_list(self,node:List[Union[str,int]])->List[Union[str,int]]:
-        return list(node)
+    def literal_list(self,node:List[Union[List[str],int]])->List[Union[str,int]]:
+        result=list()
+        for item in node:
+            if isinstance(item,list):
+                result+=item
+            else:
+                result.append(item)
+        return result
 
     def REGISTER(self,node:lark.Token)->Register:
         return Register(node.value)
@@ -78,8 +118,10 @@ class Flattener(lark.Transformer):
     def step(self,node):
         if node[0].value in self.instruction_enum:
             instruction=self.instruction_enum[node[0].value]
+            self.num_steps+=1
         else:
             instruction=node[0].value
+            self.num_steps+=MACROS_LENGTH[node[0].value]
         operands=node[1]
         return OneStep(instruction,operands)
 
@@ -89,7 +131,49 @@ class Flattener(lark.Transformer):
                 num_placeholder=MACROS_LENGTH[item.instruction]-1
                 for i in range(num_placeholder):
                     node.insert(node.index(item)+1,OneStep(self.instruction_enum["NOP"],[],True))
-        return lark.Tree("start",node)
+        self.steps=node
+        return lark.Discard
+
+    def def_var(self,node):
+        assert node[0].type=="IDENTIFIER"
+        addr=len(self.data_segment)#序数は0始まりだが、基数は1始まり
+        self.data_segment+=node[1]
+        self.variables.append(Variable(node[0].value,addr))
+        return lark.Discard
+
+    def define_label(self,node):
+        self.labels.append(Label(node[0].value,self.num_steps))
+        return lark.Discard
+
+    def export_label(self,node):
+        self.global_labels.append(node[0].value)
+        return lark.Discard
+
+    def dump(self,outputfile)->None:
+        outputfile.write(self.dumps())
+
+    def dumps(self)->str:
+        """
+        data_segment:List[int]=list()
+        variables:List[Variable]=list()
+        labels:List[Label]=list()
+        global_labels:List[str]=list()
+        external_labels:List[str]=list()
+        num_steps:int=0
+        steps:List[OneStep]
+        """
+        result=dict()
+        result["name"]="NYULAN_MIDDLECODE"
+        self.add_member_to_dict(result,"data_segment")
+        self.add_member_to_dict(result,"variables")
+        self.add_member_to_dict(result,"labels")
+        self.add_member_to_dict(result,"global_labels")
+        self.add_member_to_dict(result,"external_labels")
+        self.add_member_to_dict(result,"steps")
+        return json.dumps(result,default=vars)
+
+    def add_member_to_dict(self,dst,name):
+        dst[name]=getattr(self,name)
 
 def parse(source:str) ->lark.Tree:
     with open("nyulan.lark") as larkfile:
@@ -102,12 +186,19 @@ def main()->None:
     parser.add_argument("-o","--output",help="output filename (in result folder)")
     args=parser.parse_args()
 
-    source_filename=args.source
-    with open(source_filename) as sourcefile:
+    if args.source == None :
+        print("error: no sourcefile was given",file=sys.stderr)
+
+    if args.output == None:
+        args.output=Path(args.source).with_suffix(".nlib")
+
+    with open(args.source) as sourcefile:
         parsed_data=parse(sourcefile.read())
-    generator=Flattener()
-    transformed=generator.transform(parsed_data)
-    print(transformed.pretty())
+    generator=MiddlecodeGenerator()
+    generator.from_tree(parsed_data)
+
+    with gzip.open(args.output,"wb") as outputfile:
+        outputfile.write(generator.dumps().encode())
 
 if __name__=="__main__":
     main()

@@ -13,14 +13,15 @@ operand: REGISTER|VARIABLE|number
 
 operands: operand ("," operand)?
 step: INSTRUCTION operands?
-IDENTIFILER.-1:/[.a-z0-9_]+/ //大文字は使用不可
+IDENTIFIER.-1:/[.a-z0-9_]+/ //大文字は使用不可
 
 literal_list: literal ("," literal)*
-def_var: "DEFVAR" IDENTIFILER literal_list
+def_var: "DEFVAR" IDENTIFIER literal_list
 
-define_label: IDENTIFILER ":"
-export_label: "GLOBAL" IDENTIFILER
-import_label: "EXTERN" IDENTIFILER
+define_label: IDENTIFIER ":"
+export_label: "GLOBAL" IDENTIFIER
+import_label: "EXTERN" IDENTIFIER
+refer_label: "@{" IDENTIFIER "}"
 
 start: ((def_var|define_label|export_label|import_label|step)? COMMENT? "\n")+
 

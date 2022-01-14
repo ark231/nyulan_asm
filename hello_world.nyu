@@ -1,5 +1,6 @@
-DEFVAR hw_text "Hello,world",0b1010
-DEFVAR hw_len 0b1100
+DEFVAR hw_text "Hello,world!",0b1010
+DEFVAR hw_len 0b1101 ;TODO: 長さを自動で取得する方法をつくる
+;DEFVAR_NI var SIZE 10 ;みたいなのも作るか？DEFine VARiable Not Initialized
 
 GLOBAL _start
 
