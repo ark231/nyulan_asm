@@ -49,6 +49,7 @@ class BytecodeGenerator:
         self.__expand_variables()
         self.__expand_labels()
         self.__expand_macros()
+        self.__add_meta()
     def __expand_variables(self):
         regex=re.compile(r"\${(.+)}")
         for step in self.steps:
@@ -57,7 +58,7 @@ class BytecodeGenerator:
                 if match:
                     var=list(filter(lambda v:v["name"]==match.group(1),self.variables))
                     assert len(var) == 1,"error: variable name collision"
-                    direct_assign(step["operands"],operand,(var[0]["address"] | (0b1<<63)).to_bytes(8,sys.byteorder))
+                    direct_assign(step["operands"],operand,(var[0]["address"] | (0b1<<63)).to_bytes(8,"little"))
     def __expand_labels(self):
         pass
     def __expand_macros(self):
@@ -94,6 +95,12 @@ class BytecodeGenerator:
             del self.steps[index]
             self.steps=self.steps[:index]+plain_steps+self.steps[index:]
         self.steps=list(filter(lambda s:s["is_placeholder"]==False,self.steps))
+    def __add_meta(self):
+        for step in self.steps:
+            instruction=keys_from_value(self.instruction_enum,step["instruction"])[0]
+            if instruction == "PUSHL":
+                operand=step["operands"][0]
+                step["operands"]=[(operand&0b11110000)>>4,operand&0b00001111]
     def dump(self,filename):
         with open(filename,"wb") as outputfile:
             outputfile.write(b"NYU") #magic
@@ -120,6 +127,13 @@ def encode_Step(step):
     for i in range(len(step["operands"])):
         result|=step["operands"][i]<<(4*(1-i)) #0番目のオペランドは4bit,1番目のオペランドは0bitシフト
     return result.to_bytes(u16,sys.byteorder)
+
+def keys_from_value(src_dict,value):
+    result=list()
+    for key in src_dict:
+        if src_dict[key] == value:
+            result.append(key)
+    return result
 
 def main():
     parser=argparse.ArgumentParser(description="link nyulan middlecodes",prog="nyulan_linker.py")

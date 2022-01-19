@@ -8,14 +8,14 @@ _start:
 
 ;組み込み関数のアドレスにするため、最上位ビットを立てる
 PUSHL 1
-POP r0
+POP8 r0
 PUSHL 0b111111
-POP r1
+POP8 r1
 LSHIFT r0,r1
 
 ;組み込み関数writeを呼ぶ
 PUSHL 1
-POP r0
+POP8 r0
 PUSHL64 ${hw_len}
 PUSHL64 ${hw_text}
 PUSHL 1
@@ -23,6 +23,6 @@ CALL r0
 
 ;組み込み関数exitを呼ぶ
 PUSHL 0b111100
-POP r0
+POP8 r0
 PUSHL 0
 CALL r0
