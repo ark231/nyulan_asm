@@ -8,6 +8,7 @@ import sys
 from typing import List,Dict,Union
 import pprint
 import re
+from pathlib import Path
 def direct_assign(container,content,newvalue):
     container[container.index(content)]=newvalue
 
@@ -24,7 +25,7 @@ class BytecodeGenerator:
     labels=list()
     global_labels:[List[str]]=list()
     def __init__(self):
-        core_def=CppHeaderParser.CppHeader("nyulan_vm/nyulan.hpp").enums
+        core_def=CppHeaderParser.CppHeader(Path(__file__).parent/"nyulan_vm/nyulan.hpp").enums
         for core_enum in core_def:
             if core_enum["name"] == "Instruction":
                 for enum in core_enum["values"]:
@@ -62,12 +63,17 @@ class BytecodeGenerator:
     def __expand_labels(self):
         pass
     def __expand_macros(self):
+        regex_PUSHLs=re.compile(r"PUSHL.*")
         for step in filter(lambda o:isinstance(o["instruction"],str),self.steps):
+            match=regex_PUSHLs.match(step["instruction"])
+            if match and isinstance(step["operands"][0],int):
+                step["operands"][0]=step["operands"][0].to_bytes(u64,"little") #上から取れば,16bitとかしか使わなくても0k
+                pass
             plain_steps=list()
             if step["instruction"] == "PUSHL8":
                 plain_step=dict()
                 plain_step["instruction"]=self.instruction_enum["PUSHL"]
-                plain_step["operands"]=step["operands"]
+                plain_step["operands"]=step["operands"][0]
                 plain_step["is_placeholder"]=False
                 plain_steps.append(plain_step)
             elif step["instruction"] == "PUSHL16":

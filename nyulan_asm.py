@@ -71,7 +71,7 @@ MiddlecodeGenerator{{
 
     def __init__(self)->None:
         self.instruction_enum=dict()
-        core_def=CppHeaderParser.CppHeader("nyulan_vm/nyulan.hpp").enums
+        core_def=CppHeaderParser.CppHeader(Path(__file__).parent/"nyulan_vm/nyulan.hpp").enums
         for core_enum in core_def:
             if core_enum["name"] == "Instruction":
                 for enum in core_enum["values"]:
@@ -176,7 +176,7 @@ MiddlecodeGenerator{{
         dst[name]=getattr(self,name)
 
 def parse(source:str) ->lark.Tree:
-    with open("nyulan.lark") as larkfile:
+    with open(Path(__file__).parent/"nyulan.lark") as larkfile:
         parser=lark.Lark(larkfile.read())
     return parser.parse(source)
 
