@@ -14,15 +14,20 @@ POP8 r1
 LSHIFT r0,r1
 
 ;組み込み関数writeを呼ぶ
-PUSHL 1
+PUSHL8 1
 POP8 r0
+;hw_lenの値を読み込んでプッシュ
 PUSHL64 ${hw_len}
+POP64 r2
+LOAD8 r3,r2 ;hw_lenの中身は1バイト
+PUSHR64 r3
+;hw_textのアドレスをプッシュ
 PUSHL64 ${hw_text}
-PUSHL 1
+PUSHL64 1
 CALL r0
 
 ;組み込み関数exitを呼ぶ
-PUSHL 0b111100
+PUSHL8 0b111100
 POP8 r0
-PUSHL 0
+PUSHL64 0
 CALL r0
