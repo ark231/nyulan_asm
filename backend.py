@@ -18,6 +18,7 @@ u32=32//8
 u64=64//8
 
 class BytecodeGenerator:
+    BYTECODE_VERSION=1
     instruction_enum:Dict[str,int]=dict()
     data_segment:List[int]=list()
     steps:List=list()
@@ -111,7 +112,7 @@ class BytecodeGenerator:
         with open(filename,"wb") as outputfile:
             outputfile.write(b"NYU") #magic
             outputfile.write(0x1100.to_bytes(u16,sys.byteorder)) #bom
-            outputfile.write(0x01.to_bytes(u64,sys.byteorder)) #ver
+            outputfile.write(self.BYTECODE_VERSION.to_bytes(u64,sys.byteorder)) #ver
             outputfile.write(len(self.data_segment).to_bytes(u16,sys.byteorder)) #lit_size
             outputfile.write(bytes(self.data_segment)) #lit
             global_labels=list(filter(lambda l:l["name"] in self.global_labels,self.labels))
