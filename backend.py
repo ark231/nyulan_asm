@@ -142,7 +142,7 @@ def keys_from_value(src_dict,value):
     return result
 
 def main():
-    parser=argparse.ArgumentParser(description="link nyulan middlecodes",prog="nyulan_linker.py")
+    parser=argparse.ArgumentParser(description="backend of nyulan_asm :convert nyulan middlecodes into nyulan bytecode",prog="nyulan_linker.py")
     parser.add_argument("-s","--sources",nargs="+",help="source files")
     parser.add_argument("-o","--output",help="output filename (in result folder)")
     args=parser.parse_args()
